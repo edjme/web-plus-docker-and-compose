@@ -1,17 +1,22 @@
-import { Offer } from 'src/offers/entities/offer.entity';
-import { Wish } from 'src/wishes/entities/wish.entity';
-import { Wishlist } from 'src/wishlists/entities/wishlist.entity';
+import { IsEmail, IsOptional, IsString, IsUrl, Length } from 'class-validator';
 
 export class CreateUserDto {
-  id: number;
-  createdAt: Date;
-  updatedAt: Date;
+  @IsString()
+  @Length(2, 30)
   username: string;
+
+  @IsOptional()
+  @IsString()
+  @Length(2, 200)
   about: string;
+
+  @IsOptional()
+  @IsUrl()
   avatar: string;
+
+  @IsEmail()
   email: string;
+
+  @IsString()
   password: string;
-  wishes: Wish[];
-  wishlists: Wishlist[];
-  offers: Offer[];
 }

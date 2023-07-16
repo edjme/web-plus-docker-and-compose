@@ -1,35 +1,31 @@
-import * as bcrypt from 'bcrypt';
-import { Injectable, UnauthorizedException } from '@nestjs/common';
+import { Injectable } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
+import { HashService } from 'src/hash/hash.service';
+import { User } from 'src/users/entities/user.entity';
 import { UsersService } from 'src/users/users.service';
-import { User } from '../users/entities/user.entity';
 
 @Injectable()
 export class AuthService {
   constructor(
     private jwtService: JwtService,
-    private usersService: UsersService,
+    private userService: UsersService,
+    private hashService: HashService,
   ) {}
 
   auth(user: User) {
     const payload = { sub: user.id };
 
-    return { access_token: this.jwtService.sign(payload) };
+    return {
+      access_token: this.jwtService.sign(payload, { expiresIn: '24h' }),
+    };
   }
 
   async validatePassword(username: string, password: string) {
-    const user = await this.usersService.findByUsername(username);
+    const user = await this.userService.findOne({ where: { username } });
 
-    if (!user) {
-      throw new UnauthorizedException('Неверный логин или пароль');
-    }
-
-    const matched = await bcrypt.compare(password, user.password);
-
-    if (matched) {
-      const { password, ...result } = user;
-
-      return user;
+    if (user && user.password) {
+      const isVerified = await this.hashService.verify(password, user.password);
+      return isVerified ? user : null;
     }
 
     return null;

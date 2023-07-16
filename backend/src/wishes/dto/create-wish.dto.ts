@@ -1,17 +1,18 @@
-import { Offer } from 'src/offers/entities/offer.entity';
-import { User } from 'src/users/entities/user.entity';
+import { IsUrl, Length, Min } from 'class-validator';
 
 export class CreateWishDto {
-  id: number;
-  createdAt: Date;
-  updatedAt: Date;
+  @Length(1, 250)
   name: string;
+
+  @IsUrl()
   link: string;
+
+  @IsUrl()
   image: string;
+
+  @Min(1)
   price: number;
-  raised: number;
-  owner: User;
+
+  @Length(1, 1024)
   description: string;
-  offers: Offer[];
-  copied: number;
 }

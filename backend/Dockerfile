@@ -1,18 +1,18 @@
-FROM node:16-alpine as build
+FROM node:16-alpine AS builder
 WORKDIR /app
 COPY package*.json ./
-RUN npm ci
+RUN npm i
 COPY . .
-RUN npm run build
+RUN npm run build \
+    && rm -rf ./src \
+    && rm -rf ./node_modules
 
-FROM node:16-alpine As production
-RUN npm install pm2 -g
+FROM node:16-alpine as backend
 WORKDIR /app
-COPY --from=build /app/package*.json ./
-RUN npm ci --omit=dev
-# Копируем результат сборк из build-стадии
-COPY --from=build /app/dist ./dist
-COPY --from=build /app/ecosystem.config.js ./ecosystem.config.js 
+COPY package*.json ./
+RUN npm i --omit=dev --audit=false && npm i -g pm2
+COPY --from=builder /app/dist/ ./dist
+COPY ./ecosystem.config.js ./
 EXPOSE 3000
-# Команда для запуска 
-CMD ["pm2-runtime", "start", "ecosystem.config.js", "--env=production"]
+
+CMD ["pm2-runtime", "start", "ecosystem.config.js"]

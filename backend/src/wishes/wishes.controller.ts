@@ -6,13 +6,14 @@ import {
   Patch,
   Param,
   Delete,
-  UseGuards,
   Req,
+  UseGuards,
 } from '@nestjs/common';
 import { WishesService } from './wishes.service';
 import { CreateWishDto } from './dto/create-wish.dto';
 import { UpdateWishDto } from './dto/update-wish.dto';
 import { JwtGuard } from 'src/auth/jwt.guard';
+import { RequestWithUser } from 'src/utils/request-with-user';
 
 @Controller('wishes')
 export class WishesController {
@@ -20,45 +21,45 @@ export class WishesController {
 
   @UseGuards(JwtGuard)
   @Post()
-  create(@Req() req, @Body() createWishDto: CreateWishDto) {
-    return this.wishesService.create(req.user.id, createWishDto);
+  create(@Body() createWishDto: CreateWishDto, @Req() req: RequestWithUser) {
+    return this.wishesService.create(createWishDto, req.user.id);
   }
 
   @Get('last')
-  findLast() {
-    return this.wishesService.findLast();
+  getLastWishes() {
+    return this.wishesService.getLastWishes();
   }
 
   @Get('top')
-  findTop() {
-    return this.wishesService.findTop();
+  getTopWishes() {
+    return this.wishesService.getTopWishes();
   }
 
   @UseGuards(JwtGuard)
   @Get(':id')
-  findOne(@Param('id') id: string) {
-    return this.wishesService.findOne(+id);
+  getById(@Param('id') id: string) {
+    return this.wishesService.getById(+id);
   }
 
   @UseGuards(JwtGuard)
   @Patch(':id')
   update(
     @Param('id') id: string,
+    @Req() req: RequestWithUser,
     @Body() updateWishDto: UpdateWishDto,
-    @Req() req,
   ) {
-    return this.wishesService.update(+id, updateWishDto, req.user.id);
+    return this.wishesService.update(+id, req.user.id, updateWishDto);
   }
 
   @UseGuards(JwtGuard)
   @Delete(':id')
-  remove(@Param('id') id: string, @Req() req) {
+  remove(@Param('id') id: string, @Req() req: RequestWithUser) {
     return this.wishesService.remove(+id, req.user.id);
   }
 
   @UseGuards(JwtGuard)
   @Post(':id/copy')
-  copyWish(@Param('id') id: string, @Req() req) {
-    return this.wishesService.copyWish(+id, req.user.id);
+  copy(@Param('id') wishId: string, @Req() req: RequestWithUser) {
+    return this.wishesService.copy(+wishId, req.user.id);
   }
 }

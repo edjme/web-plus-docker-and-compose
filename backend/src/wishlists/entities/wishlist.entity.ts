@@ -1,60 +1,22 @@
-import {
-  IsDate,
-  IsInt,
-  IsNotEmpty,
-  IsString,
-  IsUrl,
-  MaxLength,
-  Min,
-  MinLength,
-} from 'class-validator';
+import { IsOptional, IsUrl, Length, MaxLength } from 'class-validator';
 import { User } from 'src/users/entities/user.entity';
+import { Base } from 'src/utils/base-entity';
+import { WishPartialDto } from 'src/wishes/dto/wish-partial.dto';
 import { Wish } from 'src/wishes/entities/wish.entity';
-import {
-  Column,
-  CreateDateColumn,
-  Entity,
-  JoinTable,
-  ManyToMany,
-  ManyToOne,
-  OneToMany,
-  PrimaryGeneratedColumn,
-  UpdateDateColumn,
-} from 'typeorm';
+import { Column, Entity, JoinTable, ManyToMany, ManyToOne } from 'typeorm';
 
 @Entity()
-export class Wishlist {
-  @IsNotEmpty()
-  @IsInt()
-  @Min(0)
-  @PrimaryGeneratedColumn()
-  id: number;
-
-  @CreateDateColumn()
-  @IsNotEmpty()
-  @IsDate()
-  createdAt: Date;
-
-  @UpdateDateColumn()
-  @IsNotEmpty()
-  @IsDate()
-  updatedAt: Date;
-
+export class Wishlist extends Base {
   @Column()
-  @IsString()
-  @IsNotEmpty()
-  @MinLength(1)
-  @MaxLength(250)
+  @Length(1, 250)
   name: string;
 
-  @Column()
-  @IsString()
+  @Column({ nullable: true })
   @MaxLength(1500)
+  @IsOptional()
   description: string;
 
   @Column()
-  @IsString()
-  @IsNotEmpty()
   @IsUrl()
   image: string;
 
@@ -63,5 +25,5 @@ export class Wishlist {
 
   @ManyToMany(() => Wish)
   @JoinTable()
-  items: Wish[];
+  items: WishPartialDto[];
 }

@@ -1,127 +1,90 @@
-import {
-  BadRequestException,
-  ConflictException,
-  Injectable,
-} from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { ConflictException, Injectable } from '@nestjs/common';
+import { FindManyOptions, FindOneOptions, Repository } from 'typeorm';
+import { HashService } from 'src/hash/hash.service';
+import { User } from './entities/user.entity';
 import { CreateUserDto } from './dto/create-user.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
-import { User } from './entities/user.entity';
-import * as bcrypt from 'bcrypt';
-import { FindUsersDto } from './dto/find-users.dto';
-import { UserProfileResponseDto } from './dto/user-profile-response.dto';
-import { UserWishesDto } from './dto/user-wishes-dto';
-
-export function hashPassword(password: string): Promise<string> {
-  return bcrypt.hash(password, 10);
-}
 
 @Injectable()
 export class UsersService {
   constructor(
     @InjectRepository(User)
     private userRepository: Repository<User>,
+    private hashService: HashService,
   ) {}
 
-  async create(createUserDto: CreateUserDto): Promise<User> {
-    const { password, email } = createUserDto;
+  async create(createUserDto: CreateUserDto) {
+    const { email, username, password } = createUserDto;
+    const user = await this.findOne({ where: [{ email }, { username }] });
 
-    const userByEmail = await this.userRepository.findBy({
-      email: email,
-    });
-
-    if (userByEmail.length !== 0) {
-      throw new ConflictException('Пользователь с такой почтой уже существует');
+    if (user) {
+      throw new ConflictException(
+        'Пользователь с таким email или username уже зарегистрирован',
+      );
     }
 
-    const user = await this.userRepository.create({
+    const hash = await this.hashService.generate(password);
+    const newUser = this.userRepository.create({
       ...createUserDto,
-      password: await hashPassword(password),
+      password: hash,
     });
 
-    return this.userRepository.save(user);
+    return this.userRepository.save(newUser);
   }
 
-  async findAll(): Promise<User[]> {
-    return this.userRepository.find();
+  findAll(query: FindManyOptions<User>) {
+    return this.userRepository.find(query);
   }
 
-  async findByUsername(username: string) {
-    const user = await this.userRepository.findOneBy({ username });
-
-    return user;
+  findOne(query: FindOneOptions<User>) {
+    return this.userRepository.findOne(query);
   }
 
-  async findOne(id: number): Promise<User> {
-    const user = this.userRepository.findOneBy({ id });
+  async updateOne(id: number, updateUserDto: UpdateUserDto) {
+    const { email, username, password } = updateUserDto;
+    const isAlreadyInBase = !!(await this.findOne({
+      where: [{ email }, { username }],
+    }));
 
-    if (!user) {
-      throw new BadRequestException('Пользователь с таким id не найден');
-    }
+    if (isAlreadyInBase)
+      throw new ConflictException(
+        'Пользователь с таким email или username уже зарегистрирован',
+      );
 
-    return user;
-  }
-
-  async findUserWishes(username: string): Promise<UserWishesDto[]> {
-    const user = await this.userRepository.findOne({
-      where: { username: username },
-      select: ['wishes'],
-      relations: ['wishes'],
-    });
-
-    return user.wishes;
-  }
-
-  async findMyWishes(id: number): Promise<UserWishesDto[]> {
-    const user = await this.userRepository.findOne({
-      where: { id: id },
-      select: ['wishes'],
-      relations: ['wishes'],
-    });
-
-    return user.wishes;
-  }
-
-  async update(id: number, user: UpdateUserDto) {
-    const { password, email } = user;
-
-    if (email) {
-      const userByEmail = await this.userRepository.findBy({
-        email: email,
-      });
-
-      const userById = await this.userRepository.findBy({
-        id: id,
-      });
-
-      if (userByEmail.length !== 0) {
-        if (userById[0].email !== email) {
-          throw new ConflictException(
-            'Пользователь с такой почтой уже существует1',
-          );
-        }
-      }
-    }
+    const user = await this.findOne({ where: { id } });
 
     if (password) {
-      return this.userRepository.update(id, {
-        ...user,
-        password: await hashPassword(password),
-      });
-    } else return this.userRepository.update({ id }, user);
+      updateUserDto.password = await this.hashService.generate(password);
+    }
+
+    const updatedUser = { ...user, ...updateUserDto };
+    await this.userRepository.update(id, updatedUser);
+
+    return this.findOne({ where: { id } });
   }
 
-  async findMany(
-    findUsersDto: FindUsersDto,
-  ): Promise<UserProfileResponseDto[]> {
-    const usersByEmail = await this.userRepository.findBy({
-      email: findUsersDto.query,
+  getByUsername(username: string) {
+    return this.findOne({ where: { username } });
+  }
+
+  getMyWishes(userId: number) {
+    return this.findOne({
+      where: { id: userId },
+      relations: { wishes: { owner: true } },
+    }).then((user) => user.wishes);
+  }
+
+  getUserWishes(username: string) {
+    return this.findOne({
+      where: { username },
+      relations: { wishes: true },
+    }).then((user) => user.wishes);
+  }
+
+  findByUsernameOrEmail(query: string) {
+    return this.findAll({
+      where: [{ username: query }, { email: query }],
     });
-    const usersByName = await this.userRepository.findBy({
-      username: findUsersDto.query,
-    });
-    const users: User[] = usersByEmail.concat(usersByName);
-    return users.map((user) => UserProfileResponseDto.getUser(user));
   }
 }

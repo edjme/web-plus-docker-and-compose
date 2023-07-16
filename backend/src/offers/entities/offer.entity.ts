@@ -1,46 +1,19 @@
-import { IsBoolean, IsDate, IsInt, IsNotEmpty, Min } from 'class-validator';
 import { User } from 'src/users/entities/user.entity';
+import { Base } from 'src/utils/base-entity';
 import { Wish } from 'src/wishes/entities/wish.entity';
-import {
-  Column,
-  CreateDateColumn,
-  Entity,
-  JoinColumn,
-  ManyToOne,
-  PrimaryGeneratedColumn,
-  UpdateDateColumn,
-} from 'typeorm';
+import { Column, Entity, ManyToOne } from 'typeorm';
 
 @Entity()
-export class Offer {
-  @IsNotEmpty()
-  @IsInt()
-  @Min(0)
-  @PrimaryGeneratedColumn()
-  id: number;
-
-  @CreateDateColumn()
-  @IsNotEmpty()
-  @IsDate()
-  createdAt: Date;
-
-  @UpdateDateColumn()
-  @IsNotEmpty()
-  @IsDate()
-  updatedAt: Date;
-
+export class Offer extends Base {
   @ManyToOne(() => User, (user) => user.offers)
   user: User;
 
-  @ManyToOne(() => Wish, (wish) => wish.offers, { onDelete: 'CASCADE' })
-  @JoinColumn()
+  @ManyToOne(() => Wish, (wish) => wish.offers)
   item: Wish;
 
-  @Column()
-  @IsNotEmpty()
+  @Column({ scale: 2 })
   amount: number;
 
   @Column({ default: false })
-  @IsBoolean()
   hidden: boolean;
 }

@@ -1,34 +1,27 @@
 import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
-import { AppController } from './app.controller';
-import dotenv = require('dotenv');
 import { UsersModule } from './users/users.module';
 import { WishesModule } from './wishes/wishes.module';
 import { WishlistsModule } from './wishlists/wishlists.module';
 import { OffersModule } from './offers/offers.module';
 import { AuthModule } from './auth/auth.module';
-import { ConfigModule, ConfigService } from '@nestjs/config';
-import { EmailSenderModule } from './email-sendler/email-sendler.module';
-import database from './config/database';
+import { HashModule } from './hash/hash.module';
+import { ConfigModule} from '@nestjs/config';
+import configuration from './configuration/configuration';
+import { DatabaseConfigFactory } from './configuration/database-config.factory';
 
-dotenv.config();
 @Module({
   imports: [
-    ConfigModule.forRoot({ load: [database] }),
-    TypeOrmModule.forRootAsync({
-      imports: [ConfigModule],
-      useFactory: (configService: ConfigService) =>
-        configService.get('database'),
-      inject: [ConfigService],
-    }),
+    ConfigModule.forRoot({ isGlobal: true, load: [configuration] }),
+    TypeOrmModule.forRootAsync({ useClass: DatabaseConfigFactory }),
     UsersModule,
     WishesModule,
     WishlistsModule,
-    OffersModule,
     AuthModule,
-    EmailSenderModule,
+    HashModule,
+    OffersModule,
   ],
-  controllers: [AppController],
-  providers: [],
+  controllers: [],
+  providers: [DatabaseConfigFactory],
 })
 export class AppModule {}

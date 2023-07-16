@@ -9,42 +9,46 @@ import {
   UseGuards,
   Req,
 } from '@nestjs/common';
+import { JwtGuard } from 'src/auth/jwt.guard';
 import { WishlistsService } from './wishlists.service';
 import { CreateWishlistDto } from './dto/create-wishlist.dto';
 import { UpdateWishlistDto } from './dto/update-wishlist.dto';
-import { JwtGuard } from 'src/auth/jwt.guard';
+import { RequestWithUser } from 'src/utils/request-with-user';
 
 @UseGuards(JwtGuard)
-@Controller('wishlists')
+@Controller('wishlistlists')
 export class WishlistsController {
   constructor(private readonly wishlistsService: WishlistsService) {}
 
   @Post()
-  createOne(@Req() req, @Body() createWishlistDto: CreateWishlistDto) {
-    return this.wishlistsService.createOne(createWishlistDto, req.user.id);
+  create(
+    @Body() createWishlistDto: CreateWishlistDto,
+    @Req() req: RequestWithUser,
+  ) {
+    return this.wishlistsService.create(createWishlistDto, req.user.id);
   }
 
   @Get()
-  findAll(@Req() req) {
-    return this.wishlistsService.findAll(req.user.id);
+  getWishlists() {
+    return this.wishlistsService.getWishlists();
   }
 
   @Get(':id')
-  findOne(@Req() req, @Param('id') id: string) {
-    return this.wishlistsService.findOne(+id, req.user.id);
+  getById(@Param('id') id: string) {
+    return this.wishlistsService.getById(+id);
   }
 
   @Patch(':id')
-  updateOne(
-    @Req() req,
+  update(
     @Param('id') id: string,
     @Body() updateWishlistDto: UpdateWishlistDto,
+    @Req() req: RequestWithUser,
   ) {
-    return this.wishlistsService.updateOne(+id, updateWishlistDto, req.user.id);
+    return this.wishlistsService.update(+id, updateWishlistDto, req.user.id);
   }
 
   @Delete(':id')
-  removeOne(@Req() req, @Param('id') id: string) {
-    return this.wishlistsService.removeOne(+id, req.user.id);
+  remove(@Param('id') id: string, @Req() req: RequestWithUser) {
+    return this.wishlistsService.delete(+id, req.user.id);
   }
 }

@@ -1,118 +1,84 @@
-import { Injectable, UnauthorizedException } from '@nestjs/common';
-import { InjectRepository } from '@nestjs/typeorm';
-import { UserPublicProfileResponseDto } from 'src/users/dto/user-public-profile-response.dto';
-import { User } from 'src/users/entities/user.entity';
-import { Wish } from 'src/wishes/entities/wish.entity';
-import { In, Repository } from 'typeorm';
+import { ForbiddenException, Injectable } from '@nestjs/common';
 import { CreateWishlistDto } from './dto/create-wishlist.dto';
-import { PublicWishlistDto } from './dto/public-wishlist.dto';
 import { UpdateWishlistDto } from './dto/update-wishlist.dto';
+import { InjectRepository } from '@nestjs/typeorm';
+import { FindManyOptions, FindOneOptions, Repository } from 'typeorm';
 import { Wishlist } from './entities/wishlist.entity';
 
 @Injectable()
 export class WishlistsService {
   constructor(
     @InjectRepository(Wishlist)
-    private readonly wishlistRepository: Repository<Wishlist>,
-    @InjectRepository(Wish)
-    private readonly wishesRepository: Repository<Wish>,
-    @InjectRepository(User)
-    private readonly usersRepository: Repository<User>,
+    private wishlistsRepository: Repository<Wishlist>,
   ) {}
 
-  async create(wishlist: CreateWishlistDto): Promise<Wishlist> {
-    return this.wishlistRepository.save(wishlist);
+  create(createWishlistDto: CreateWishlistDto, ownerId) {
+    const { itemsId, ...rest } = createWishlistDto;
+    const items = itemsId.map((id) => ({ id }));
+    const wishList = this.wishlistsRepository.create({
+      ...rest,
+      items,
+      owner: { id: ownerId },
+    });
+    return this.wishlistsRepository.save(wishList);
   }
 
-  async createOne(
-    createWishlistDto: CreateWishlistDto,
-    userId: number,
-  ): Promise<Wishlist> {
-    const user = await this.usersRepository.findOneBy({ id: userId });
-    const wishes = await this.wishesRepository.findBy({
-      id: In(createWishlistDto.itemsId),
-    });
-    const newWishlist = {
-      ...createWishlistDto,
-      owner: UserPublicProfileResponseDto.getUser(user),
-      items: wishes,
-    };
-    delete newWishlist.itemsId;
-    return this.create(newWishlist);
+  findAll(query: FindManyOptions<Wishlist>) {
+    return this.wishlistsRepository.find(query);
   }
 
-  async findAll(userId: number): Promise<PublicWishlistDto[]> {
-    const wishlists = await this.wishlistRepository.find({
-      where: {
-        owner: {
-          id: userId,
-        },
-      },
-      relations: ['owner', 'items'],
-    });
-    return wishlists.map((wishlist) => {
-      return {
-        ...wishlist,
-        owner: UserPublicProfileResponseDto.getUser(wishlist.owner),
-      };
+  findOne(query: FindOneOptions<Wishlist>) {
+    return this.wishlistsRepository.findOne(query);
+  }
+
+  getWishlists() {
+    return this.findAll({ relations: ['items', 'owner'] });
+  }
+
+  getById(id: number) {
+    return this.findOne({
+      where: { id },
+      relations: ['items', 'owner'],
     });
   }
 
-  async findOne(id: number, userId: number): Promise<PublicWishlistDto> {
-    const wishlist = await this.wishlistRepository.findOne({
-      where: {
-        id: id,
-      },
-      relations: ['owner', 'items'],
-    });
-    if (wishlist.owner.id !== userId) {
-      throw new UnauthorizedException(
-        'Нельзя получить доступ к чужому вишлисту',
-      );
-    }
-    return {
-      ...wishlist,
-      owner: UserPublicProfileResponseDto.getUser(wishlist.owner),
-    };
-  }
-
-  async update(id: number, wishlist: UpdateWishlistDto): Promise<void> {
-    await this.wishlistRepository.update({ id }, wishlist);
-  }
-
-  async updateOne(
-    wishlistId: number,
+  async update(
+    id: number,
     updateWishlistDto: UpdateWishlistDto,
     userId: number,
   ) {
-    const wishlist = await this.wishlistRepository.findOne({
-      where: { id: wishlistId },
-      relations: ['owner'],
+    const wishlist = await this.findOne({
+      where: { id },
+      relations: { owner: true },
     });
-    if (wishlist && wishlist.owner.id !== userId) {
-      throw new UnauthorizedException('');
+
+    if (wishlist.owner.id !== userId) {
+      throw new ForbiddenException(
+        'Вы можете редактировать только свои списки подарков',
+      );
     }
-    const wishes = await this.wishesRepository.findBy({
-      id: In(updateWishlistDto.itemsId),
+
+    const { itemsId, ...rest } = updateWishlistDto;
+    const items = itemsId.map((id) => ({ id }));
+    const updatedWishlist = { ...rest, items };
+
+    await this.wishlistsRepository.update(id, updatedWishlist);
+    return this.findOne({ where: { id } });
+  }
+
+  async delete(id: number, userId) {
+    const wishlist = await this.findOne({
+      where: { id },
+      relations: { owner: true },
     });
-    const newWishlist = {
-      ...updateWishlistDto,
-      id: wishlistId,
-      updatedAt: new Date(),
-      owner: UserPublicProfileResponseDto.getUser(wishlist.owner),
-      items: wishes,
-    };
-    delete newWishlist.itemsId;
-    return this.wishlistRepository.save(newWishlist);
-  }
 
-  async remove(id: number) {
-    await this.wishlistRepository.delete(id);
-  }
+    if (wishlist.owner.id !== userId) {
+      throw new ForbiddenException(
+        'Вы можете удалять только свои списки подарков',
+      );
+    }
 
-  async removeOne(wishlistId: number, userId: number) {
-    const wishlist = await this.findOne(wishlistId, userId);
-    await this.remove(wishlistId);
+    await this.wishlistsRepository.delete(id);
     return wishlist;
   }
 }
